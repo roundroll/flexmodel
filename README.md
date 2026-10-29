@@ -90,21 +90,6 @@ planner.on(new Trade(104));          // uses the mid as of this trade
 final var value = planner.feature(RecentTradeVsMid.class);   // (2 + 2 + 1) / 3
 ```
 
-## Dependency graph
-
-The graph behind the example; solid arrows show event flow, dotted arrows show declared dependencies:
-
-```mermaid
-flowchart LR
-    quote([Quote]) --> book["Book<br/>handle + state: bid, ask"]
-    trade([Trade]) --> rtvmHandle["RecentTradeVsMid.handle<br/>push price - mid"]
-    book -.->|eval dep| mid["Mid<br/>eval only"]
-    mid -.->|value dep| rtvmHandle
-    rtvmHandle --> rtvm["RecentTradeVsMid state<br/>ring buffer, sum"]
-    feature([feature request]) --> rtvmEval["RecentTradeVsMid.eval"]
-    rtvm --> rtvmEval
-```
-
 ## Guarantees
 
 - **Order-independent**: node registration order does not affect values; plans are topological.
