@@ -14,6 +14,9 @@ class PlannerDependencyTest {
     record Tick() {
     }
 
+    record Tock() {
+    }
+
     static final class Counter implements Node {
         int count;
 
@@ -24,10 +27,11 @@ class PlannerDependencyTest {
         }
     }
 
+    @Deps(Counter.class)
     static final class Snapshot implements Node {
         int seen = -1;
 
-        @Handle(deps = Counter.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
             seen = context.node(Counter.class).count;
             TestLog.add("H:Snapshot");
@@ -50,10 +54,11 @@ class PlannerDependencyTest {
         }
     }
 
+    @Deps(Level.class)
     static final class Reader implements Node {
         double seen = -1;
 
-        @Handle(deps = Level.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
             seen = context.value(Level.class);
             TestLog.add("H:Reader");
@@ -70,13 +75,32 @@ class PlannerDependencyTest {
         }
     }
 
+    @Deps(Level.class)
     static final class FreshReader implements Node {
         double seen = -1;
 
-        @Handle(deps = Level.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
             seen = context.value(Level.class);
             TestLog.add("H:Fresh");
+        }
+    }
+
+    @Deps(Level.class)
+    static final class Dual implements Node {
+        double tickSeen = -1;
+        double tockSeen = -1;
+
+        @Handle
+        void onTick(final Tick tick, final Context context) {
+            tickSeen = context.value(Level.class);
+            TestLog.add("H:Dual:tick");
+        }
+
+        @Handle
+        void onTock(final Tock tock, final Context context) {
+            tockSeen = context.value(Level.class);
+            TestLog.add("H:Dual:tock");
         }
     }
 
@@ -133,7 +157,7 @@ class PlannerDependencyTest {
      * The registration order is {@code [StaleReader, Level, FreshReader]}, so H:Stale runs before this tick's
      * E:Level and sees the previous tick's value (0, then 1), while the declaring FreshReader sees 1, then 2.
      * Staleness is order-dependent: after FreshReader has triggered the eval, an undeclared read would see the fresh
-     * value. Declaring {@code deps = Level.class} is the fix.
+     * value. Declaring {@code @Deps(Level.class)} on the node is the fix.
      */
     @Test
     void undeclaredDependenciesAreStale() {
@@ -146,6 +170,19 @@ class PlannerDependencyTest {
         planner.on(new Tick());
         assertThat(planner.node(FreshReader.class).seen).isEqualTo(2.0);
         assertThat(planner.node(StaleReader.class).seen).isEqualTo(1.0);   // previous tick's value
+    }
+
+    @Test
+    void nodeDepsAreSharedByAllHandlers() {
+        final var planner = new Planner(new Dual(), new Level());
+
+        planner.on(new Tick());
+        assertThat(planner.node(Dual.class).tickSeen).isEqualTo(1.0);
+        assertThat(TestLog.take()).containsExactly("H:Level", "E:Level", "H:Dual:tick");
+
+        planner.on(new Tock());
+        assertThat(planner.node(Dual.class).tockSeen).isEqualTo(1.0);
+        assertThat(TestLog.take()).containsExactly("E:Level", "H:Dual:tock");
     }
 
     @Test

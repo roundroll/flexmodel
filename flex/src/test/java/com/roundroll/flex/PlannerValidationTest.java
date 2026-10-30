@@ -20,34 +20,39 @@ class PlannerValidationTest {
     static final class DuplicateNode implements Node {
     }
 
+    @Deps(EvalCycleB.class)
     static final class EvalCycleA implements Node {
-        @Eval(deps = EvalCycleB.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(EvalCycleA.class)
     static final class EvalCycleB implements Node {
-        @Eval(deps = EvalCycleA.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(HandleCycleB.class)
     static final class HandleCycleA implements Node {
-        @Handle(deps = HandleCycleB.class)
+        @Handle
         void onPing(final Ping ping, final Context context) {
         }
     }
 
+    @Deps(HandleCycleA.class)
     static final class HandleCycleB implements Node {
-        @Handle(deps = HandleCycleA.class)
+        @Handle
         void onPing(final Ping ping, final Context context) {
         }
     }
 
+    @Deps(Ghost.class)
     static final class UsesGhost implements Node {
-        @Eval(deps = Ghost.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }

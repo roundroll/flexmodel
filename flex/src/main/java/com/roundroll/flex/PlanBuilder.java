@@ -8,8 +8,8 @@ import java.util.Map;
  * Builds one event or query plan with a DFS-based topological sort.
  * <p>
  * Vertices are actions: a node's handler and its eval are separate vertices, and each is emitted after every
- * vertex it depends on. Edges come from the declared handler/eval deps, plus an implicit handler-to-eval edge when
- * a node both handles the current event and is read by it. Marks start white, become gray ({@code VISITING}) while
+ * vertex it depends on. Edges come from the node's declared deps, plus an implicit handler-to-eval edge when a node
+ * both handles the current event and is read by it. Marks start white, become gray ({@code VISITING}) while
  * on the DFS stack — revisiting a gray vertex means a cycle — and black ({@code DONE}) once emitted, which also
  * deduplicates values reached through multiple paths.
  * <p>
@@ -67,7 +67,7 @@ final class PlanBuilder {
     private void visitHandler(final int index, final Class<?> eventType) {
         final var handler = specs[index].handlers.get(eventType);
         if (handler != null) {
-            visitAction(index, eventType, handler.label, handler.deps, handler.action);
+            visitAction(index, eventType, handler.label, specs[index].deps, handler.action);
         }
     }
 
@@ -80,7 +80,7 @@ final class PlanBuilder {
      * <pre>{@code
      * visitEval(A, Tick)
      *   visitHandler(A) -> add H:A   // handler before eval
-     *   (A has no eval deps)
+     *   (A declares no deps)
      *   add E:A
      * }</pre>
      * A state-only node with no eval stops after its handler. A query ({@code eventType == null}) skips the
@@ -93,7 +93,7 @@ final class PlanBuilder {
         }
         final var eval = specs[index].eval;
         if (eval != null) {
-            visitAction(specs.length + index, eventType, eval.label, eval.deps, eval.action);
+            visitAction(specs.length + index, eventType, eval.label, specs[index].deps, eval.action);
         }
     }
 

@@ -13,11 +13,11 @@ import java.util.Objects;
  * <p>
  * Raw input is a stream of events. A {@link Node} holds feature state and splits its computation in two: an
  * {@link Handle} runs on every event of a kind and updates the state, while an {@link Eval} computes the feature's
- * value on demand from that state and its declared dependencies. Because history lives inside the graph, handlers
- * must see every event: there is no coalescing and no cutoff.
+ * value on demand from that state and the dependencies the node declares with {@link Deps}. Because history lives
+ * inside the graph, handlers must see every event: there is no coalescing and no cutoff.
  * <p>
  * At construction the planner derives, for each event class, one ordered plan of handlers and evals. The event
- * class selects the handlers; the values they declare in {@code deps} fix the order, since a value must be
+ * class selects the handlers; the values each node declares in {@link Deps} fix the order, since a value must be
  * computed before it is read. Plans are deduplicated (an action runs at most once per event), contain only what
  * the event actually needs, and run a node's handler before its eval when the node both handles the event and is
  * read by it. Dependency cycles and dependencies absent from the planner are rejected at construction.
@@ -127,12 +127,7 @@ public final class Planner implements Context {
             specs[i] = NodeSpec.inspect(nodes[i]);
         }
         for (final var spec : specs) {
-            for (final var handler : spec.handlers.values()) {
-                checkDeps(handler.deps, handler.label);
-            }
-            if (spec.eval != null) {
-                checkDeps(spec.eval.deps, spec.eval.label);
-            }
+            checkDeps(spec.deps, spec.node.getClass().getSimpleName());
         }
         for (var i = 0; i < count; ++i) {
             final var spec = specs[i];

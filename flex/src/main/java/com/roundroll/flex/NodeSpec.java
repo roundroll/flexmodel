@@ -7,15 +7,18 @@ import java.util.Map;
 
 final class NodeSpec {
     final Node node;
+    final Class<?>[] deps;
     final Map<Class<?>, HandlerSpec> handlers = new LinkedHashMap<>();
     EvalSpec eval;
 
-    private NodeSpec(final Node node) {
+    private NodeSpec(final Node node, final Class<?>[] deps) {
         this.node = node;
+        this.deps = deps;
     }
 
     static NodeSpec inspect(final Node node) {
-        final var spec = new NodeSpec(node);
+        final var deps = node.getClass().getAnnotation(Deps.class);
+        final var spec = new NodeSpec(node, deps == null ? new Class<?>[0] : deps.value());
         for (final var method : node.getClass().getDeclaredMethods()) {
             final var handle = method.getAnnotation(Handle.class);
             final var eval = method.getAnnotation(Eval.class);
@@ -29,9 +32,9 @@ final class NodeSpec {
                 throw new IllegalArgumentException("Feature methods must not be static: " + method);
             }
             if (handle != null) {
-                spec.addHandler(node, method, handle);
+                spec.addHandler(node, method);
             } else {
-                spec.addEval(node, method, eval);
+                spec.addEval(node, method);
             }
         }
         return spec;
@@ -54,17 +57,17 @@ final class NodeSpec {
         return node.getClass().getSimpleName() + "#" + method.getName();
     }
 
-    private void addHandler(final Node node, final Method method, final Handle handle) {
+    private void addHandler(final Node node, final Method method) {
         final var eventType = getEventType(method);
         final var previous = handlers.putIfAbsent(
-            eventType, new HandlerSpec(method, handle.deps(), label(node, method)));
+            eventType, new HandlerSpec(method, label(node, method)));
         if (previous != null) {
             throw new IllegalArgumentException(
                 "Duplicate handler for " + eventType.getName() + " on " + node.getClass().getName());
         }
     }
 
-    private void addEval(final Node node, final Method method, final Eval eval) {
+    private void addEval(final Node node, final Method method) {
         final var parameters = method.getParameterTypes();
         if (method.getReturnType() != double.class || parameters.length != 1 || parameters[0] != Context.class) {
             throw new IllegalArgumentException(
@@ -73,6 +76,6 @@ final class NodeSpec {
         if (this.eval != null) {
             throw new IllegalArgumentException("Duplicate @Eval method on " + node.getClass().getName());
         }
-        this.eval = new EvalSpec(method, eval.deps(), label(node, method));
+        this.eval = new EvalSpec(method, label(node, method));
     }
 }

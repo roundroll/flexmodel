@@ -9,15 +9,16 @@ An event-driven feature planner in Java, following Jane Street's
 
 A `Node` owns a feature's mutable state and splits its computation in two:
 
-| Member                                                    | Meaning                                                                                                                 |
-|-----------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
-| `@Handle(deps = ...) void name(Event event, Context ctx)` | Runs on **every** event of the method's parameter type, updating state. No coalescing, no cutoffs.                      |
-| `@Eval(deps = ...) double name(Context ctx)`              | Pure computation of the node's value; runs **only when needed**. A stateless feature (like the mid) needs only an eval. |
+| Member                                                | Meaning                                                                                                                 |
+|-------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------|
+| `@Deps(...)` on the node class                        | The values the node reads, shared by every handler and the eval. Declared once per node.                                |
+| `@Handle void name(Event event, Context ctx)`         | Runs on **every** event of the method's parameter type, updating state. No coalescing, no cutoffs.                      |
+| `@Eval double name(Context ctx)`                      | Pure computation of the node's value; runs **only when needed**. A stateless feature (like the mid) needs only an eval. |
 
 The `Planner` builds, at construction, one ordered plan per event class: the event class selects the handlers, and
-the values they declare in `deps` fix the order, since a value must be computed before it is read. A handler that
-reads a node also handled by the current event sees the handler's update first. Plans are deduplicated and contain
-only what the event needs. Dependency cycles and unregistered dependencies are rejected at construction.
+the values each node declares in `@Deps` fix the order, since a value must be computed before it is read. A handler
+that reads a node also handled by the current event sees the handler's update first. Plans are deduplicated and
+contain only what the event needs. Dependency cycles and unregistered dependencies are rejected at construction.
 
 The plan for the post's running example — the average of `trade price - mid` over recent trades:
 
@@ -46,21 +47,23 @@ final class Book implements Node {
   }
 }
 
+@Deps(Book.class)
 final class Mid implements Node {
-  @Eval(deps = Book.class)
+  @Eval
   double eval(final Context context) {
     final var book = context.node(Book.class);
     return (book.bid + book.ask) / 2;
   }
 }
 
+@Deps(Mid.class)
 final class RecentTradeVsMid implements Node {
   private final double[] diffs = new double[10];
   private int position;
   private int count;
   private double sum;
 
-  @Handle(deps = Mid.class)
+  @Handle
   void onTrade(final Trade trade, final Context context) {
     final double diff = trade.price() - context.value(Mid.class);
     if (count == diffs.length) {
@@ -107,8 +110,10 @@ allocation measurement). A `Planner` is not thread-safe; dispatch from a single 
 
 ## Behavior worth knowing
 
-- Dependencies are **declared, not enforced**: reading `context.value(X)` without listing `X` in `deps` observes
-  the previous value.
+- Dependencies are **node-level**: one `@Deps` list per node, shared by every handler and the eval. There are no
+  per-handler dependencies; a node whose responsibilities need different inputs should be split.
+- Dependencies are **declared, not enforced**: reading `context.value(X)` without listing `X` in the node's `@Deps`
+  observes the previous value.
 - Events match handlers by **exact class**.
 - Feature methods must be declared on the node class itself; inherited methods are not scanned.
 - Node classes must be accessible to the planner (public when in another package); methods may be private.

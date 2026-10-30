@@ -53,12 +53,12 @@ Feature: Event-driven feature planning
     And a trade at price 101 with size 1 arrives
     Then the "mid vs vwap" feature is -37 over 15
 
-  Scenario: A timer reset runs only the dependencies it declares
+  Scenario: A timer reset runs the node's dependencies
     Given a planner with the example nodes
     And a quote with bid 100 and ask 102 has arrived
     And a trade at price 104 with size 3 has arrived
     When a timer at 500 milliseconds arrives
-    Then the executed steps are "H:RTVM:reset, H:Clock"
+    Then the executed steps are "E:Mid, H:RTVM:reset, H:Clock"
     And the clock is 500
     And the "recent trade vs mid" feature is 0
     When a trade at price 106 with size 1 arrives
@@ -75,7 +75,7 @@ Feature: Event-driven feature planning
     And a trade at price 104 with size 3 has arrived
     And a trade at price 104 with size 3 has arrived
     When I query the "norm dist" feature
-    Then the executed steps are "E:RTVM, E:Spread, E:NormDist"
+    Then the executed steps are "E:Mid, E:RTVM, E:Spread, E:NormDist"
     And the "norm dist" feature is 1.5
     When I query the "mid" feature
     Then the executed steps are "E:Mid"

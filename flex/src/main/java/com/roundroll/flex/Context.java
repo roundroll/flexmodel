@@ -14,8 +14,8 @@ public interface Context {
     /**
      * Returns the last value computed by the given node's eval.
      * <p>
-     * The value is fresh only if the caller declared the node in {@code deps}; the planner then schedules that
-     * eval before the caller runs. Dependencies are declared, not enforced.
+     * The value is fresh only if the caller's node declares the dependency with {@link Deps}; the planner then
+     * schedules that eval before any handler or eval of the node runs. Dependencies are declared, not enforced.
      *
      * @throws IllegalArgumentException if no node of this type is registered, or it has no {@link Eval}.
      */

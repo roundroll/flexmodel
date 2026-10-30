@@ -16,6 +16,9 @@ class PlanBuilderTest {
     record Unhandled() {
     }
 
+    record Tock() {
+    }
+
     static final class A implements Node {
         @Handle
         void onTick(final Tick tick, final Context context) {
@@ -27,14 +30,16 @@ class PlanBuilderTest {
         }
     }
 
+    @Deps(A.class)
     static final class B implements Node {
-        @Handle(deps = A.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
         }
     }
 
+    @Deps(A.class)
     static final class C implements Node {
-        @Handle(deps = A.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
         }
     }
@@ -50,82 +55,110 @@ class PlanBuilderTest {
         }
     }
 
+    @Deps(Source.class)
     static final class Left implements Node {
-        @Eval(deps = Source.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(Source.class)
     static final class Right implements Node {
-        @Eval(deps = Source.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps({Left.class, Right.class})
     static final class Root implements Node {
-        @Eval(deps = {Left.class, Right.class})
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(Source.class)
+    static final class Shared implements Node {
+        @Handle
+        void onTick(final Tick tick, final Context context) {
+        }
+
+        @Handle
+        void onTock(final Tock tock, final Context context) {
+        }
+
+        @Eval
+        double eval(final Context context) {
+            return 0;
+        }
+    }
+
+    @Deps(EvalCycleB.class)
     static final class EvalCycleA implements Node {
-        @Eval(deps = EvalCycleB.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(EvalCycleA.class)
     static final class EvalCycleB implements Node {
-        @Eval(deps = EvalCycleA.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(HandleCycleB.class)
     static final class HandleCycleA implements Node {
-        @Handle(deps = HandleCycleB.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
         }
     }
 
+    @Deps(HandleCycleA.class)
     static final class HandleCycleB implements Node {
-        @Handle(deps = HandleCycleA.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
         }
     }
 
+    @Deps(SelfCycle.class)
     static final class SelfCycle implements Node {
-        @Eval(deps = SelfCycle.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(CycleEntry.class)
     static final class CycleRoot implements Node {
-        @Handle(deps = CycleEntry.class)
+        @Handle
         void onTick(final Tick tick, final Context context) {
         }
     }
 
+    @Deps(CycleA.class)
     static final class CycleEntry implements Node {
-        @Eval(deps = CycleA.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(CycleB.class)
     static final class CycleA implements Node {
-        @Eval(deps = CycleB.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
     }
 
+    @Deps(CycleA.class)
     static final class CycleB implements Node {
-        @Eval(deps = CycleA.class)
+        @Eval
         double eval(final Context context) {
             return 0;
         }
@@ -180,6 +213,21 @@ class PlanBuilderTest {
         final var executed = fixture.execute(fixture.builder().queryPlan(0));
 
         assertThat(executed).containsExactly("Source#eval", "Left#eval", "Right#eval", "Root#eval");
+    }
+
+    @Test
+    void nodeDepsApplyToEveryHandlerAndTheEval() {
+        final var tickFixture = new Fixture(new Shared(), new Source());
+        assertThat(tickFixture.execute(tickFixture.builder().eventPlan(Tick.class)))
+                .containsExactly("Source#onTick", "Source#eval", "Shared#onTick");
+
+        final var tockFixture = new Fixture(new Shared(), new Source());
+        assertThat(tockFixture.execute(tockFixture.builder().eventPlan(Tock.class)))
+                .containsExactly("Source#eval", "Shared#onTock");
+
+        final var queryFixture = new Fixture(new Shared(), new Source());
+        assertThat(queryFixture.execute(queryFixture.builder().queryPlan(0)))
+                .containsExactly("Source#eval", "Shared#eval");
     }
 
     @Test
