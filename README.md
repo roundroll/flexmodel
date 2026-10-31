@@ -28,6 +28,16 @@ on a trade:  mid eval ; recent_trade_vs_mid handle
 when asked:  recent_trade_vs_mid eval
 ```
 
+## Where state and values live
+
+A node owns its state — the fields its handlers mutate — but not its computed value. State lives on the node
+instance and is read through `context.node(X.class)`. An `@Eval` result, by contrast, is stored in the planner,
+indexed by node registration order, and read back through `context.value(X.class)` or
+`planner.feature(X.class)`; nodes without an eval have no value at all. The node stays the source of truth for
+history, while the eval result is a derived cache whose freshness the planner schedules. Primitive `double` slots
+also keep dispatch free of boxing. Consequently, inspecting a node after dispatch shows only handler-updated state;
+the value is read through the planner.
+
 ## Example
 
 ```java
